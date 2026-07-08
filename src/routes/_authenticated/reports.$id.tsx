@@ -31,12 +31,26 @@ function ReportDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("crime_reports")
-        .select(`*, category:crime_categories(name), reporter:profiles!crime_reports_reporter_id_fkey(full_name, phone), officer:profiles!crime_reports_officer_id_fkey(full_name, badge_number)`)
+        .select(`*, category:crime_categories(name)`)
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
+  });
+
+  const { data: reporter } = useQuery({
+    queryKey: ["profile", report?.reporter_id],
+    enabled: !!report?.reporter_id,
+    queryFn: async () =>
+      (await supabase.from("profiles").select("full_name, phone").eq("id", report!.reporter_id).maybeSingle()).data,
+  });
+
+  const { data: officer } = useQuery({
+    queryKey: ["profile", report?.officer_id],
+    enabled: !!report?.officer_id,
+    queryFn: async () =>
+      (await supabase.from("profiles").select("full_name, badge_number").eq("id", report!.officer_id!).maybeSingle()).data,
   });
 
   const { data: evidence = [] } = useQuery({
@@ -53,8 +67,8 @@ function ReportDetail() {
   const [statusChange, setStatusChange] = useState<string>("");
 
   const updateStatus = useMutation({
-    mutationFn: async (newStatus: string) => {
-      const patch: Record<string, unknown> = { status: newStatus };
+    mutationFn: async (newStatus: (typeof STATUSES)[number]) => {
+      const patch: { status: (typeof STATUSES)[number]; officer_id?: string } = { status: newStatus };
       if (role === "police" && !report?.officer_id && user) patch.officer_id = user.id;
       const { error } = await supabase.from("crime_reports").update(patch).eq("id", id);
       if (error) throw error;
@@ -134,8 +148,8 @@ function ReportDetail() {
               <Field label="Region" value={[report.lga, report.state].filter(Boolean).join(", ") || "—"} />
               <Field label="Coordinates" value={`${report.latitude}, ${report.longitude}`} />
               <Field label="Reported" value={formatDate(report.created_at)} />
-              {canManage && <Field label="Reporter" value={report.reporter?.full_name ?? "—"} />}
-              {canManage && <Field label="Officer" value={report.officer?.full_name ?? "Unassigned"} />}
+              {canManage && <Field label="Reporter" value={reporter?.full_name ?? "—"} />}
+              {canManage && <Field label="Officer" value={officer?.full_name ?? "Unassigned"} />}
             </div>
             <div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Description</div>
