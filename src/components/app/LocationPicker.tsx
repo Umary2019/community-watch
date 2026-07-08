@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
+import type L from "leaflet";
 import { redIcon } from "@/lib/leaflet-icons";
 import { Button } from "@/components/ui/button";
 import { MapPin, Loader2, Locate } from "lucide-react";
@@ -95,7 +96,3 @@ export function LocationPicker({ value, onChange, className }: Props) {
     </div>
   );
 }
-
-// Re-export leaflet namespace type
-import type L from "leaflet";
-export type { L };
