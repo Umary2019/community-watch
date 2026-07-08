@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapContainer, TileLayer, CircleMarker, Popup, Marker } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, Marker, LayerGroup } from "react-leaflet";
 import { redIcon } from "@/lib/leaflet-icons";
 import { humanStatus, statusColor } from "@/lib/format";
 import { Link } from "@tanstack/react-router";
@@ -44,9 +44,8 @@ function MapPage() {
             <MapContainer center={center} zoom={6} scrollWheelZoom>
               <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               {reports.map((r) => (
-                <>
+                <LayerGroup key={r.id}>
                   <CircleMarker
-                    key={`c-${r.id}`}
                     center={[Number(r.latitude), Number(r.longitude)]}
                     radius={r.severity === "critical" ? 22 : r.severity === "high" ? 16 : 10}
                     pathOptions={{
@@ -56,7 +55,7 @@ function MapPage() {
                       weight: 0,
                     }}
                   />
-                  <Marker key={`m-${r.id}`} position={[Number(r.latitude), Number(r.longitude)]} icon={redIcon}>
+                  <Marker position={[Number(r.latitude), Number(r.longitude)]} icon={redIcon}>
                     <Popup>
                       <div className="space-y-1 text-sm">
                         <div className="font-medium">{r.title}</div>
@@ -66,7 +65,7 @@ function MapPage() {
                       </div>
                     </Popup>
                   </Marker>
-                </>
+                </LayerGroup>
               ))}
             </MapContainer>
           </div>
