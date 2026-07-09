@@ -24,34 +24,61 @@ manage users, roles, categories, audit logs and a district-wide crime map.
 
 ## 3. Features
 
-**Citizens** — dashboard, submit report (GPS/manual location), upload evidence
-(images/videos), view & track reports, edit/delete pending reports, live
-notifications, profile management.
+### Citizens
+- Dashboard with personal case summary and quick actions.
+- Submit a report with automatic GPS capture or manual pin placement on a map.
+- Upload up to 8 evidence files (images/videos) per report — private storage.
+- Submit **anonymously** — identity hidden from officers, kept for admin oversight.
+- View, track, edit, and delete own **pending** reports.
+- In-app notifications on status change and officer assignment.
+- Profile management (name, phone).
+- **Forgot password / password reset** via email link.
 
-**Police officers** — assigned/nearby cases, crime map, case detail with
-investigation timeline, status updates, internal notes.
+### Police officers
+- Case list filtered to assigned + pending (RLS-enforced).
+- Self-assign unassigned cases in one click.
+- Case detail with map, evidence gallery, investigation timeline.
+- Post investigation updates, including **internal notes** hidden from reporters.
+- Change status; citizen is auto-notified.
+- Crime map with heat circles and per-case pins.
 
-**Administrators** — full report visibility, user & role management, crime
-categories CRUD, audit logs, heatmap/hotspot map, analytics dashboard, CSV
-export.
+### Administrators
+- Full report visibility, delete, and status override.
+- Assign any officer to any case from a dropdown.
+- User & role management (grant/revoke `police` / `admin`).
+- Crime category CRUD (activate/deactivate, edit).
+- Audit log viewer.
+- Analytics dashboard with trends, status distribution, and category breakdown.
+- District-wide crime heatmap with severity weighting.
 
-**System-wide** — 15 pre-seeded crime categories, 6 status states, severity
-levels, auto-generated report numbers (`CR-YYYYMMDD-XXXXXX`), notification
-triggers, Row-Level Security on every table.
+### Reports list — search, filter, export
+- Full-text search on report number, title, address.
+- Filter by status, category, severity, and date range.
+- Export current view to **CSV, Excel (.xlsx), or PDF** (all formula-injection safe).
+
+### System-wide
+- 15 pre-seeded crime categories, 6 status states, 4 severity levels.
+- Auto-generated report numbers (`CR-YYYYMMDD-XXXXXX`).
+- Notification triggers on status change / assignment.
+- **Rate limiting**: max 5 report submissions per hour per user (DB-level).
+- Row-Level Security on every table + storage bucket.
+- Audit-log integrity — no user can forge `system` entries.
+- CSV/Excel/PDF exports sanitize formula-injection triggers (`=`, `+`, `-`, `@`).
 
 ## 4. Technology Stack
 
-| Layer          | Tech                                                                 |
-| -------------- | -------------------------------------------------------------------- |
-| Framework      | TanStack Start v1, React 19, TypeScript, Vite 7                      |
-| Styling        | Tailwind CSS v4, shadcn/ui, Lucide icons                             |
-| Data / Server  | TanStack Query, TanStack Router, `createServerFn`                    |
-| Backend        | Lovable Cloud (managed PostgreSQL + Auth + Storage + Edge functions) |
-| Auth           | JWT sessions via Supabase Auth, bcrypt-hashed passwords              |
-| Maps           | Leaflet, react-leaflet, OpenStreetMap, HTML5 Geolocation             |
-| Charts         | Recharts                                                             |
-| Forms          | react-hook-form + Zod validation                                     |
-| Notifications  | Sonner toasts + database-driven in-app notifications                 |
+| Layer          | Tech                                                                  |
+| -------------- | --------------------------------------------------------------------- |
+| Framework      | TanStack Start v1, React 19, TypeScript, Vite 7                       |
+| Styling        | Tailwind CSS v4, shadcn/ui, Lucide icons                              |
+| Data / Server  | TanStack Query, TanStack Router                                       |
+| Backend        | Lovable Cloud (managed PostgreSQL + Auth + Storage)                   |
+| Auth           | JWT sessions via Supabase Auth, bcrypt-hashed passwords, HIBP-capable |
+| Maps           | Leaflet, react-leaflet, OpenStreetMap, HTML5 Geolocation              |
+| Charts         | Recharts                                                              |
+| Exports        | jsPDF + jspdf-autotable (PDF), SheetJS `xlsx` (Excel), native CSV     |
+| Forms          | Native forms + Zod validation                                         |
+| Notifications  | Sonner toasts + database-driven in-app notifications                  |
 
 ## 5. System Architecture
 
@@ -70,11 +97,12 @@ src/
     ui/          shadcn/ui primitives
   hooks/         useAuth, useRoles, useTopRole
   integrations/supabase/  (auto-generated client & types)
-  lib/           format helpers, leaflet-icons, utils
+  lib/           format helpers (CSV/XLSX/PDF), leaflet-icons, utils
   routes/
     __root.tsx   root shell
     index.tsx    landing page
-    auth.tsx     sign in / sign up
+    auth.tsx     sign in / sign up / forgot password
+    auth.reset.tsx  password reset landing page
     _authenticated/
       route.tsx  auth gate (ssr: false)
       dashboard.tsx
@@ -170,11 +198,28 @@ SELECT id, 'admin' FROM auth.users WHERE email = 'you@example.com';
 ## 12. Security Highlights
 
 - RLS on every table + `has_role()` helper with locked `search_path`.
-- Storage-level policies scoped to `{user_id}/` folders.
+- `has_role()` `EXECUTE` revoked from `anon` and `authenticated` — RLS-only.
+- Storage-level policies scoped to `{user_id}/` folders for INSERT, SELECT,
+  UPDATE and DELETE.
+- Officer scope tightened: police can only read/update reports assigned to
+  them, unassigned, or pending; cannot reassign to another officer.
+- Audit log integrity: rows must carry `actor_id = auth.uid()`; no NULL-actor
+  forgery bypass for signed-in users.
+- CSV/Excel/PDF exports sanitize formula-injection triggers (`=`, `+`, `-`,
+  `@`, tab, CR) before serialization.
+- DB-level rate limiting: 5 reports/hour per user via `BEFORE INSERT` trigger.
 - Zod validation client-side; DB constraints + RLS server-side.
 - No service-role key exposed to the browser.
 - Audit log table + admin viewer.
-- Passwords hashed by Supabase Auth (bcrypt).
+- Passwords hashed by Supabase Auth (bcrypt); optional HIBP leak-check
+  available in Cloud → Users → Auth Settings.
+
+### Password reset flow
+1. Click **Forgot your password?** on the sign-in page.
+2. Supabase sends a recovery email with a link to `/auth/reset`.
+3. `/auth/reset` picks up the recovery session and lets the user set a new
+   password (min 8 chars).
+4. On success, the user is signed in and routed to the dashboard.
 
 ## 13. Testing
 
@@ -192,14 +237,39 @@ Manual QA:
 Deploys via Lovable — click Publish in the editor. Frontend updates need an
 explicit "Update" click; backend deploys automatically.
 
-## 15. Future Improvements
+## 15. Feature Matrix
 
-- Push notifications (web-push)
-- SMS/WhatsApp gateway for offline citizens
-- ML auto-categorisation of descriptions
-- Real-time collaborative case boards
-- React Native mobile app
+| Area                              | Status |
+| --------------------------------- | ------ |
+| Auth + roles (citizen/police/admin) | ✅   |
+| GPS/map report submission         | ✅     |
+| Evidence upload (images/video)    | ✅     |
+| Anonymous reporting               | ✅     |
+| Police / admin dashboards         | ✅     |
+| Categories CRUD                   | ✅     |
+| Status workflow + auto-notify     | ✅     |
+| Investigation updates + internal notes | ✅ |
+| Officer self-assign + admin assign | ✅    |
+| Crime map + heatmap               | ✅     |
+| Analytics + charts                | ✅     |
+| Search + filters (status/category/severity/date) | ✅ |
+| Export: CSV                       | ✅     |
+| Export: Excel (.xlsx)             | ✅     |
+| Export: PDF                       | ✅     |
+| In-app notifications              | ✅     |
+| Audit logs                        | ✅     |
+| Password reset (email link)       | ✅     |
+| Rate limiting                     | ✅     |
 
-## 16. License
+## 16. Future Improvements
+
+- Email/SMS notification gateway (SendGrid / Twilio) for offline citizens.
+- Push notifications (web-push).
+- ML auto-categorisation of descriptions.
+- Real-time collaborative case boards (Supabase Realtime).
+- React Native mobile app.
+- Automated E2E test suite (Playwright).
+
+## 17. License
 
 MIT — academic use.
