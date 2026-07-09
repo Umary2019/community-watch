@@ -13,9 +13,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, FilePlus2, Search } from "lucide-react";
-import { STATUSES, downloadFile, formatDate, humanStatus, statusColor, toCSV } from "@/lib/format";
+import {
+  SEVERITIES,
+  STATUSES,
+  downloadFile,
+  downloadPDF,
+  downloadXLSX,
+  formatDate,
+  humanStatus,
+  statusColor,
+  toCSV,
+} from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/reports/")({
   component: ReportsList,
@@ -27,6 +43,9 @@ function ReportsList() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [categoryId, setCategoryId] = useState<string>("all");
+  const [severity, setSeverity] = useState<string>("all");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories-basic"],
@@ -53,14 +72,17 @@ function ReportsList() {
     return data.filter((r) => {
       if (status !== "all" && r.status !== status) return false;
       if (categoryId !== "all" && r.category_id !== categoryId) return false;
+      if (severity !== "all" && r.severity !== severity) return false;
+      if (fromDate && new Date(r.created_at) < new Date(fromDate)) return false;
+      if (toDate && new Date(r.created_at) > new Date(`${toDate}T23:59:59`)) return false;
       if (q && !`${r.title} ${r.report_number} ${r.address}`.toLowerCase().includes(q.toLowerCase()))
         return false;
       return true;
     });
-  }, [data, q, status, categoryId]);
+  }, [data, q, status, categoryId, severity, fromDate, toDate]);
 
-  function exportCSV() {
-    const rows = filtered.map((r) => ({
+  function rowsForExport() {
+    return filtered.map((r) => ({
       report_number: r.report_number,
       title: r.title,
       status: r.status,
@@ -69,7 +91,29 @@ function ReportsList() {
       address: r.address,
       created_at: r.created_at,
     }));
-    downloadFile(`reports-${Date.now()}.csv`, toCSV(rows));
+  }
+
+  function exportCSV() {
+    downloadFile(`reports-${Date.now()}.csv`, toCSV(rowsForExport()));
+  }
+  async function exportXLSX() {
+    await downloadXLSX(`reports-${Date.now()}.xlsx`, rowsForExport());
+  }
+  async function exportPDF() {
+    await downloadPDF(
+      `reports-${Date.now()}.pdf`,
+      "SafeCity — Crime Reports",
+      [
+        { header: "Report #", key: "report_number" },
+        { header: "Title", key: "title" },
+        { header: "Category", key: "category" },
+        { header: "Status", key: "status" },
+        { header: "Severity", key: "severity" },
+        { header: "Address", key: "address" },
+        { header: "Created", key: "created_at" },
+      ],
+      rowsForExport(),
+    );
   }
 
   return (
@@ -84,9 +128,18 @@ function ReportsList() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={exportCSV} className="gap-2">
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Download className="h-4 w-4" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportCSV}>CSV (.csv)</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportXLSX}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportPDF}>PDF (.pdf)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {(role === "citizen" || role === "admin") && (
             <Link to="/reports/new">
               <Button className="gap-2"><FilePlus2 className="h-4 w-4" /> New</Button>
@@ -96,7 +149,7 @@ function ReportsList() {
       </div>
 
       <Card>
-        <CardContent className="p-4 grid gap-3 md:grid-cols-4">
+        <CardContent className="p-4 grid gap-3 md:grid-cols-6">
           <div className="md:col-span-2 relative">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Search by number, title, address…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
@@ -115,6 +168,28 @@ function ReportsList() {
               {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={severity} onValueChange={setSeverity}>
+            <SelectTrigger><SelectValue placeholder="Severity" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All severities</SelectItem>
+              {SEVERITIES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex gap-2 md:col-span-6">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground">From</label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground">To</label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
+            {(fromDate || toDate || severity !== "all" || status !== "all" || categoryId !== "all" || q) && (
+              <div className="flex items-end">
+                <Button variant="ghost" size="sm" onClick={() => { setQ(""); setStatus("all"); setCategoryId("all"); setSeverity("all"); setFromDate(""); setToDate(""); }}>Clear</Button>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

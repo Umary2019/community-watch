@@ -13,7 +13,7 @@ import { redIcon } from "@/lib/leaflet-icons";
 import { STATUSES, formatDate, humanStatus, statusColor, severityColor } from "@/lib/format";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Trash2, ArrowLeft } from "lucide-react";
+import { Trash2, ArrowLeft, UserCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/reports/$id")({
   component: ReportDetail,
@@ -53,6 +53,25 @@ function ReportDetail() {
       (await supabase.from("profiles").select("full_name, badge_number").eq("id", report!.officer_id!).maybeSingle()).data,
   });
 
+  // Admin-only list of officers available for assignment
+  const { data: officers = [] } = useQuery({
+    queryKey: ["officers-list"],
+    enabled: role === "admin",
+    queryFn: async () => {
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "police");
+      const ids = (roleRows ?? []).map((r) => r.user_id);
+      if (!ids.length) return [] as { id: string; full_name: string | null; badge_number: string | null }[];
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name, badge_number")
+        .in("id", ids);
+      return data ?? [];
+    },
+  });
+
   const { data: evidence = [] } = useQuery({
     queryKey: ["report-evidence", id],
     queryFn: async () => (await supabase.from("evidence").select("*").eq("report_id", id).order("created_at")).data ?? [],
@@ -65,6 +84,7 @@ function ReportDetail() {
 
   const [note, setNote] = useState("");
   const [statusChange, setStatusChange] = useState<string>("");
+  const [internal, setInternal] = useState(false);
 
   const updateStatus = useMutation({
     mutationFn: async (newStatus: (typeof STATUSES)[number]) => {
@@ -84,6 +104,7 @@ function ReportDetail() {
         report_id: id,
         officer_id: user.id,
         note: note.trim(),
+        is_internal: internal,
         status_change: statusChange && statusChange !== "none" ? (statusChange as "pending") : null,
       });
       if (error) throw error;
@@ -93,10 +114,35 @@ function ReportDetail() {
     },
     onSuccess: () => {
       toast.success("Update posted");
-      setNote(""); setStatusChange("");
+      setNote(""); setStatusChange(""); setInternal(false);
       qc.invalidateQueries({ queryKey: ["report-updates", id] });
       qc.invalidateQueries({ queryKey: ["report", id] });
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const selfAssign = useMutation({
+    mutationFn: async () => {
+      if (!user) return;
+      const { error } = await supabase
+        .from("crime_reports")
+        .update({ officer_id: user.id, status: report?.status === "pending" ? "assigned" : report?.status })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Case assigned to you"); qc.invalidateQueries({ queryKey: ["report", id] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const assignOfficer = useMutation({
+    mutationFn: async (officerId: string) => {
+      const { error } = await supabase
+        .from("crime_reports")
+        .update({ officer_id: officerId, status: report?.status === "pending" ? "assigned" : report?.status })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Officer assigned"); qc.invalidateQueries({ queryKey: ["report", id] }); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -115,6 +161,8 @@ function ReportDetail() {
   const isOwner = report.reporter_id === user?.id;
   const canManage = role === "police" || role === "admin";
   const canDelete = (isOwner && report.status === "pending") || role === "admin";
+  // Anonymous reports: hide reporter identity from officers, keep admin oversight.
+  const showReporter = role === "admin" || (canManage && !report.is_anonymous);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -148,7 +196,16 @@ function ReportDetail() {
               <Field label="Region" value={[report.lga, report.state].filter(Boolean).join(", ") || "—"} />
               <Field label="Coordinates" value={`${report.latitude}, ${report.longitude}`} />
               <Field label="Reported" value={formatDate(report.created_at)} />
-              {canManage && <Field label="Reporter" value={reporter?.full_name ?? "—"} />}
+              {canManage && (
+                <Field
+                  label="Reporter"
+                  value={
+                    showReporter
+                      ? reporter?.full_name ?? "—"
+                      : <span className="italic text-muted-foreground">Anonymous</span>
+                  }
+                />
+              )}
               {canManage && <Field label="Officer" value={officer?.full_name ?? "Unassigned"} />}
             </div>
             <div>
@@ -199,6 +256,37 @@ function ReportDetail() {
         <Card>
           <CardHeader><CardTitle>Case management</CardTitle></CardHeader>
           <CardContent className="space-y-4">
+            {/* Assignment controls */}
+            <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-border">
+              <span className="text-sm text-muted-foreground">Assignment:</span>
+              {role === "police" && report.officer_id !== user?.id && (
+                <Button size="sm" variant="outline" className="gap-2" onClick={() => selfAssign.mutate()} disabled={selfAssign.isPending}>
+                  <UserCheck className="h-4 w-4" /> Assign to me
+                </Button>
+              )}
+              {role === "admin" && (
+                <Select
+                  value={report.officer_id ?? "unassigned"}
+                  onValueChange={(v) => v !== "unassigned" && assignOfficer.mutate(v)}
+                >
+                  <SelectTrigger className="w-64"><SelectValue placeholder="Assign officer" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned" disabled>Assign officer…</SelectItem>
+                    {officers.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.full_name ?? "Unnamed"}{o.badge_number ? ` · #${o.badge_number}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {report.officer_id && (
+                <span className="text-xs text-muted-foreground">
+                  Currently: {officer?.full_name ?? "—"}
+                </span>
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Quick status:</span>
               {STATUSES.map((s) => (
@@ -211,6 +299,15 @@ function ReportDetail() {
             <div className="grid gap-3 md:grid-cols-4">
               <div className="md:col-span-3">
                 <Textarea placeholder="Add investigation note…" value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
+                <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={internal}
+                    onChange={(e) => setInternal(e.target.checked)}
+                    className="accent-destructive"
+                  />
+                  Internal note (hidden from the reporter)
+                </label>
               </div>
               <div className="space-y-2">
                 <Select value={statusChange || "none"} onValueChange={setStatusChange}>
@@ -240,6 +337,11 @@ function ReportDetail() {
                 <li key={u.id} className="ml-6">
                   <span className="absolute -left-1.5 h-3 w-3 rounded-full bg-destructive" />
                   <div className="text-xs text-muted-foreground">{formatDate(u.created_at)}</div>
+                  {u.is_internal && (
+                    <div className="text-xs mt-1 inline-block rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 px-2 py-0.5">
+                      Internal
+                    </div>
+                  )}
                   {u.status_change && (
                     <div className="text-xs mt-1"><span className={`rounded-full border px-2 py-0.5 ${statusColor(u.status_change)}`}>Status → {humanStatus(u.status_change)}</span></div>
                   )}

@@ -71,6 +71,54 @@ export function toCSV(rows: Record<string, unknown>[]): string {
   return [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
 }
 
+function sanitizeCell(v: unknown): string {
+  const raw = v == null ? "" : String(v);
+  return /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+}
+
+export async function downloadXLSX(name: string, rows: Record<string, unknown>[]) {
+  const XLSX = await import("xlsx");
+  const sanitized = rows.map((r) => {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(r)) out[k] = sanitizeCell(v);
+    return out;
+  });
+  const ws = XLSX.utils.json_to_sheet(sanitized);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Reports");
+  XLSX.writeFile(wb, name);
+}
+
+export async function downloadPDF(
+  name: string,
+  title: string,
+  columns: { header: string; key: string }[],
+  rows: Record<string, unknown>[],
+) {
+  const { default: jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+  doc.setFontSize(16);
+  doc.text(title, 40, 40);
+  doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(
+    `Generated ${new Date().toLocaleString()} · ${rows.length} record(s)`,
+    40,
+    58,
+  );
+  autoTable(doc, {
+    startY: 74,
+    head: [columns.map((c) => c.header)],
+    body: rows.map((r) => columns.map((c) => sanitizeCell(r[c.key]))),
+    styles: { fontSize: 9, cellPadding: 6, overflow: "linebreak" },
+    headStyles: { fillColor: [15, 33, 65], textColor: 255 },
+    alternateRowStyles: { fillColor: [246, 248, 251] },
+    margin: { left: 40, right: 40 },
+  });
+  doc.save(name);
+}
+
 export function downloadFile(name: string, content: string, mime = "text/csv") {
   const blob = new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);

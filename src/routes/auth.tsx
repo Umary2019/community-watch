@@ -32,6 +32,7 @@ const signUpSchema = signInSchema.extend({
 function AuthPage() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"auth" | "forgot">("auth");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -76,6 +77,21 @@ function AuthPage() {
     toast.success("Account created — you can now sign in");
   }
 
+  async function onForgotPassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const email = String(fd.get("email") ?? "").trim();
+    if (!email) return toast.error("Enter your email");
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`,
+    });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("If an account exists, a reset link has been sent");
+    setMode("auth");
+  }
+
   return (
     <div className="min-h-screen grid md:grid-cols-2 bg-background">
       <div className="hidden md:flex flex-col justify-between p-10 bg-primary text-primary-foreground">
@@ -98,10 +114,33 @@ function AuthPage() {
       <div className="flex items-center justify-center p-6">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Welcome</CardTitle>
-            <CardDescription>Sign in or create an account to continue</CardDescription>
+            <CardTitle>{mode === "forgot" ? "Reset password" : "Welcome"}</CardTitle>
+            <CardDescription>
+              {mode === "forgot"
+                ? "Enter your email to receive a password reset link"
+                : "Sign in or create an account to continue"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
+            {mode === "forgot" ? (
+              <form onSubmit={onForgotPassword} className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label htmlFor="fp-email">Email</Label>
+                  <Input id="fp-email" name="email" type="email" required />
+                </div>
+                <Button type="submit" className="w-full" disabled={busy}>
+                  {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Send reset link
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setMode("auth")}
+                >
+                  Back to sign in
+                </Button>
+              </form>
+            ) : (
             <Tabs defaultValue="signin">
               <TabsList className="grid grid-cols-2 w-full">
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
@@ -120,6 +159,13 @@ function AuthPage() {
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Sign in
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("forgot")}
+                    className="text-xs text-primary hover:underline block w-full text-center"
+                  >
+                    Forgot your password?
+                  </button>
                 </form>
               </TabsContent>
               <TabsContent value="signup">
@@ -146,6 +192,7 @@ function AuthPage() {
                 </form>
               </TabsContent>
             </Tabs>
+            )}
           </CardContent>
         </Card>
       </div>
