@@ -21,6 +21,7 @@ import { LocationPicker, type LatLng } from "@/components/app/LocationPicker";
 import { EvidenceUpload, type UploadedFile } from "@/components/app/EvidenceUpload";
 import { SEVERITIES } from "@/lib/format";
 import { Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/_authenticated/reports/new")({
   head: () => ({ meta: [{ title: "New Report — SafeCity" }] }),
@@ -44,6 +45,7 @@ function NewReport() {
   const navigate = useNavigate();
   const [loc, setLoc] = useState<LatLng | null>(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories-active"],
@@ -62,6 +64,7 @@ function NewReport() {
           reporter_id: user.id,
           latitude: loc.lat,
           longitude: loc.lng,
+          is_anonymous: isAnonymous,
         })
         .select("id")
         .single();
@@ -171,6 +174,26 @@ function NewReport() {
           <CardHeader><CardTitle>Evidence (optional)</CardTitle></CardHeader>
           <CardContent>
             {user && <EvidenceUpload userId={user.id} value={files} onChange={setFiles} />}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Privacy</CardTitle></CardHeader>
+          <CardContent>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <Checkbox
+                checked={isAnonymous}
+                onCheckedChange={(v) => setIsAnonymous(v === true)}
+                className="mt-0.5"
+              />
+              <span className="text-sm">
+                <span className="font-medium">Submit anonymously</span>
+                <p className="text-muted-foreground mt-1">
+                  Your identity will be hidden from police officers reviewing this
+                  case. Administrators retain access for oversight and audit purposes.
+                </p>
+              </span>
+            </label>
           </CardContent>
         </Card>
 
