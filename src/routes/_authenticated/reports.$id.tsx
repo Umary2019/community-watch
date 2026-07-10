@@ -387,6 +387,24 @@ function ReportDetail() {
           )}
         </CardContent>
       </Card>
+
+      {showChat && user && (
+        <ReportChat
+          reportId={id}
+          currentUserId={user.id}
+          reporterId={report.reporter_id}
+          officerId={report.officer_id}
+        />
+      )}
+
+      {user && (
+        <ReportRating
+          reportId={id}
+          reporterId={report.reporter_id}
+          currentUserId={user.id}
+          status={report.status}
+        />
+      )}
     </div>
   );
 }
