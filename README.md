@@ -29,7 +29,10 @@ manage users, roles, categories, audit logs and a district-wide crime map.
 - Submit a report with automatic GPS capture or manual pin placement on a map.
 - Upload up to 8 evidence files (images/videos) per report — private storage.
 - Submit **anonymously** — identity hidden from officers, kept for admin oversight.
-- View, track, edit, and delete own **pending** reports.
+- View and track own reports at every stage.
+- **Edit or withdraw** own **pending** reports (locked once an officer picks the case up, preserving the case record).
+- **In-app messaging** with the assigned officer — realtime chat scoped to the case, with read receipts and per-message notifications.
+- **Satisfaction rating** (1–5 stars + optional feedback) submittable after the case is resolved or closed. One rating per case, visible to the assigned officer and admins.
 - In-app notifications on status change and officer assignment.
 - Profile management (name, phone).
 - **Forgot password / password reset** via email link.
@@ -40,6 +43,8 @@ manage users, roles, categories, audit logs and a district-wide crime map.
 - Case detail with map, evidence gallery, investigation timeline.
 - Post investigation updates, including **internal notes** hidden from reporters.
 - Change status; citizen is auto-notified.
+- **Chat directly with the reporter** on each assigned case (realtime, read receipts).
+- View citizen satisfaction ratings on resolved / closed cases.
 - Crime map with heat circles and per-case pins.
 
 ### Administrators
@@ -60,10 +65,13 @@ manage users, roles, categories, audit logs and a district-wide crime map.
 - 15 pre-seeded crime categories, 6 status states, 4 severity levels.
 - Auto-generated report numbers (`CR-YYYYMMDD-XXXXXX`).
 - Notification triggers on status change / assignment.
+- Notification trigger on new case messages.
+- Realtime chat via Supabase Realtime (`report_messages` in the publication).
 - **Rate limiting**: max 5 report submissions per hour per user (DB-level).
 - Row-Level Security on every table + storage bucket.
 - Audit-log integrity — no user can forge `system` entries.
 - CSV/Excel/PDF exports sanitize formula-injection triggers (`=`, `+`, `-`, `@`).
+- Brand favicon (navy shield + red location pin) served from `public/favicon.png`.
 
 ## 4. Technology Stack
 
