@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useTopRole } from "@/hooks/useAuth";
@@ -13,7 +13,9 @@ import { redIcon } from "@/lib/leaflet-icons";
 import { STATUSES, formatDate, humanStatus, statusColor, severityColor } from "@/lib/format";
 import { toast } from "sonner";
 import { useState } from "react";
-import { Trash2, ArrowLeft, UserCheck } from "lucide-react";
+import { Trash2, ArrowLeft, UserCheck, Pencil } from "lucide-react";
+import { ReportChat } from "@/components/app/ReportChat";
+import { ReportRating } from "@/components/app/ReportRating";
 
 export const Route = createFileRoute("/_authenticated/reports/$id")({
   component: ReportDetail,
@@ -161,8 +163,14 @@ function ReportDetail() {
   const isOwner = report.reporter_id === user?.id;
   const canManage = role === "police" || role === "admin";
   const canDelete = (isOwner && report.status === "pending") || role === "admin";
+  const canEdit = isOwner && report.status === "pending";
+  const canWithdraw = isOwner && report.status === "pending";
   // Anonymous reports: hide reporter identity from officers, keep admin oversight.
   const showReporter = role === "admin" || (canManage && !report.is_anonymous);
+  const isParticipant =
+    !!user &&
+    (user.id === report.reporter_id || (report.officer_id && user.id === report.officer_id));
+  const showChat = isParticipant || role === "admin";
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -177,13 +185,40 @@ function ReportDetail() {
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <span className={`text-xs rounded-full border px-2 py-1 ${statusColor(report.status)}`}>{humanStatus(report.status)}</span>
           <span className={`text-xs rounded-full border px-2 py-1 capitalize ${severityColor(report.severity)}`}>{report.severity}</span>
-          {canDelete && (
+          {canEdit && (
+            <Button variant="outline" size="sm" className="gap-1" asChild>
+              <Link to="/reports/$id/edit" params={{ id }}>
+                <Pencil className="h-4 w-4" /> Edit
+              </Link>
+            </Button>
+          )}
+          {canWithdraw ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={() =>
+                confirm(
+                  "Withdraw this report? It will be permanently removed. This action cannot be undone.",
+                ) && remove.mutate()
+              }
+            >
+              <Trash2 className="h-4 w-4" /> Withdraw
+            </Button>
+          ) : canDelete && (
             <Button variant="outline" size="sm" className="gap-1" onClick={() => confirm("Delete this report?") && remove.mutate()}>
               <Trash2 className="h-4 w-4" /> Delete
             </Button>
           )}
         </div>
       </div>
+
+      {isOwner && report.status === "pending" && (
+        <div className="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          This report is still <span className="font-medium text-foreground">pending pickup</span>.
+          You can edit or withdraw it until an officer takes the case.
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
