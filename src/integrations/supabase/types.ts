@@ -287,6 +287,76 @@ export type Database = {
         }
         Relationships: []
       }
+      report_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          read_at: string | null
+          report_id: string
+          sender_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          report_id: string
+          sender_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          report_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_messages_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "crime_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_ratings: {
+        Row: {
+          created_at: string
+          feedback: string | null
+          id: string
+          report_id: string
+          reporter_id: string
+          stars: number
+        }
+        Insert: {
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          report_id: string
+          reporter_id: string
+          stars: number
+        }
+        Update: {
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          report_id?: string
+          reporter_id?: string
+          stars?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_ratings_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: true
+            referencedRelation: "crime_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
