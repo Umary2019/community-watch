@@ -154,6 +154,8 @@ SUPABASE_PUBLISHABLE_KEY=...
 | investigation_updates    | Case timeline notes (internal / public)          |
 | notifications            | Per-user in-app notifications                    |
 | audit_logs               | System-level activity trail                      |
+| report_messages          | 1-to-1 chat between reporter and assigned officer (realtime, read receipts) |
+| report_ratings           | Citizen satisfaction rating (1 per closed report) |
 
 All tables are protected by Row-Level Security. Access is granted through
 `has_role(user_id, role)` — a SECURITY DEFINER function — so citizens see
