@@ -68,13 +68,13 @@ function AuthPage() {
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: window.location.origin,
         data: { full_name: parsed.data.fullName, phone: parsed.data.phone },
       },
     });
     setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success("Account created — you can now sign in");
+    toast.success("Account created — check your email, then sign in");
   }
 
   async function onForgotPassword(e: React.FormEvent<HTMLFormElement>) {

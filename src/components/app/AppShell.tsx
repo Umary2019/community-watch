@@ -16,7 +16,7 @@ import {
   Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useTopRole, type AppRole } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -111,6 +111,8 @@ function TopBar() {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="p-0 w-64 bg-sidebar text-sidebar-foreground">
+          <SheetTitle className="sr-only">Application navigation</SheetTitle>
+          <SheetDescription className="sr-only">Navigate between SafeCity features</SheetDescription>
           <SidebarContent role={role} />
         </SheetContent>
       </Sheet>
