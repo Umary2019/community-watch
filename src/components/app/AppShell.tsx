@@ -67,6 +67,20 @@ function TopBar() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  const { data: profile } = useQuery({
+    queryKey: ["current-profile-name", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user!.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: unread = 0 } = useQuery({
     queryKey: ["unread-notifications", user?.id],
     enabled: !!user,
@@ -103,7 +117,7 @@ function TopBar() {
       <div className="flex-1">
         <div className="text-sm text-muted-foreground">Signed in as</div>
         <div className="text-sm font-medium truncate max-w-[60vw]">
-          {user?.email} · <span className="uppercase text-xs tracking-wide text-destructive">{role ?? "…"}</span>
+          {profile?.full_name ?? "Loading profile…"} · <span className="uppercase text-xs tracking-wide text-destructive">{role ?? "…"}</span>
         </div>
       </div>
       <Link to="/notifications">
