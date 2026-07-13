@@ -27,11 +27,12 @@ export function ReportRating({
   const { data: rating } = useQuery({
     queryKey: ["report-rating", reportId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("report_ratings")
         .select("*")
         .eq("report_id", reportId)
         .maybeSingle();
+      if (error) throw error;
       return data;
     },
   });

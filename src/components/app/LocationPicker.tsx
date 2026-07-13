@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import type L from "leaflet";
 import { redIcon } from "@/lib/leaflet-icons";
@@ -45,7 +45,12 @@ export function LocationPicker({ value, onChange, onAddressResolved, className }
   const [locating, setLocating] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [placeName, setPlaceName] = useState<string | null>(null);
+  const onAddressResolvedRef = useRef(onAddressResolved);
   const center: LatLng = value ?? { lat: 9.082, lng: 8.6753 }; // Nigeria center default
+
+  useEffect(() => {
+    onAddressResolvedRef.current = onAddressResolved;
+  }, [onAddressResolved]);
 
   // Reverse-geocode whenever the pin moves so the user sees the actual place
   // name for the crime scene and the parent form can auto-fill address fields.
@@ -65,7 +70,7 @@ export function LocationPicker({ value, onChange, onAddressResolved, className }
       .then((data: { display_name?: string; address?: Record<string, string> }) => {
         const display = data.display_name ?? null;
         setPlaceName(display);
-        if (onAddressResolved) {
+        if (onAddressResolvedRef.current) {
           const a = data.address ?? {};
           const streetParts = [
             a.house_number,
@@ -73,7 +78,7 @@ export function LocationPicker({ value, onChange, onAddressResolved, className }
             a.neighbourhood ?? a.suburb ?? a.village ?? a.town ?? a.city_district,
             a.city ?? a.town ?? a.village,
           ].filter(Boolean);
-          onAddressResolved({
+          onAddressResolvedRef.current({
             address: streetParts.join(", ") || display || "",
             state: a.state ?? a.region,
             lga: a.county ?? a.city_district ?? a.suburb,
@@ -83,9 +88,11 @@ export function LocationPicker({ value, onChange, onAddressResolved, className }
       .catch((err: unknown) => {
         if ((err as { name?: string })?.name !== "AbortError") setPlaceName(null);
       })
-      .finally(() => setResolving(false));
+      .finally(() => {
+        if (!ctrl.signal.aborted) setResolving(false);
+      });
     return () => ctrl.abort();
-  }, [value, onAddressResolved]);
+  }, [value?.lat, value?.lng]);
 
   function detect() {
     if (!navigator.geolocation) return toast.error("Geolocation not supported");

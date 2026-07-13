@@ -16,7 +16,7 @@ function Profile() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const { data: profile } = useQuery({
+  const { data: profile, isLoading } = useQuery({
     queryKey: ["profile-full", user?.id],
     enabled: !!user,
     queryFn: async () => (await supabase.from("profiles").select("*").eq("id", user!.id).maybeSingle()).data,
@@ -51,7 +51,12 @@ function Profile() {
       <Card>
         <CardHeader><CardTitle>Personal info</CardTitle></CardHeader>
         <CardContent>
-          <form onSubmit={(e) => { e.preventDefault(); save.mutate(new FormData(e.currentTarget)); }} className="space-y-4">
+          {isLoading ? (
+            <div className="py-6 text-sm text-muted-foreground">Loading profile…</div>
+          ) : !profile ? (
+            <div className="py-6 text-sm text-muted-foreground">Profile information could not be found.</div>
+          ) : (
+          <form key={profile.updated_at} onSubmit={(e) => { e.preventDefault(); save.mutate(new FormData(e.currentTarget)); }} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="full_name">Full name</Label>
@@ -72,6 +77,7 @@ function Profile() {
             </div>
             <Button type="submit" disabled={save.isPending}>Save changes</Button>
           </form>
+          )}
         </CardContent>
       </Card>
       <Card>

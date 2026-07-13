@@ -75,7 +75,7 @@ function TopBar() {
         .from("profiles")
         .select("full_name")
         .eq("id", user!.id)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -119,7 +119,7 @@ function TopBar() {
       <div className="flex-1">
         <div className="text-sm text-muted-foreground">Signed in as</div>
         <div className="text-sm font-medium truncate max-w-[60vw]">
-          {profile?.full_name ?? "Loading profile…"} · <span className="uppercase text-xs tracking-wide text-destructive">{role ?? "…"}</span>
+          {profile?.full_name || user?.user_metadata?.full_name || "SafeCity user"} · <span className="uppercase text-xs tracking-wide text-destructive">{role ?? "…"}</span>
         </div>
       </div>
       <Link to="/notifications">

@@ -76,12 +76,35 @@ function ReportDetail() {
 
   const { data: evidence = [] } = useQuery({
     queryKey: ["report-evidence", id],
-    queryFn: async () => (await supabase.from("evidence").select("*").eq("report_id", id).order("created_at")).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("evidence")
+        .select("*")
+        .eq("report_id", id)
+        .order("created_at");
+      if (error) throw error;
+      return Promise.all(
+        (data ?? []).map(async (item) => {
+          const { data: signed, error: signError } = await supabase.storage
+            .from("evidence")
+            .createSignedUrl(item.storage_path, 60 * 60);
+          return { ...item, url: signError ? item.url : signed.signedUrl };
+        }),
+      );
+    },
   });
 
   const { data: updates = [] } = useQuery({
     queryKey: ["report-updates", id],
-    queryFn: async () => (await supabase.from("investigation_updates").select("*").eq("report_id", id).order("created_at")).data ?? [],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("investigation_updates")
+        .select("*")
+        .eq("report_id", id)
+        .order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
   const [note, setNote] = useState("");
