@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { LocationPicker, type LatLng } from "@/components/app/LocationPicker";
+import { LocationPicker, type LatLng, type ResolvedAddress } from "@/components/app/LocationPicker";
 import { SEVERITIES } from "@/lib/format";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
@@ -39,6 +39,9 @@ function EditReport() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loc, setLoc] = useState<LatLng | null>(null);
+  const [address, setAddress] = useState<string>("");
+  const [stateName, setStateName] = useState<string>("");
+  const [lga, setLga] = useState<string>("");
 
   const { data: report, isLoading } = useQuery({
     queryKey: ["report", id],
@@ -56,8 +59,19 @@ function EditReport() {
   });
 
   useEffect(() => {
-    if (report && !loc) setLoc({ lat: Number(report.latitude), lng: Number(report.longitude) });
+    if (report && !loc) {
+      setLoc({ lat: Number(report.latitude), lng: Number(report.longitude) });
+      setAddress(report.address ?? "");
+      setStateName(report.state ?? "");
+      setLga(report.lga ?? "");
+    }
   }, [report, loc]);
+
+  function handleResolved(a: ResolvedAddress) {
+    if (a.address) setAddress(a.address);
+    if (a.state) setStateName(a.state);
+    if (a.lga) setLga(a.lga);
+  }
 
   const save = useMutation({
     mutationFn: async (input: z.infer<typeof schema>) => {
@@ -156,18 +170,37 @@ function EditReport() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="md:col-span-3 space-y-2">
                 <Label htmlFor="address">Address / landmark</Label>
-                <Input id="address" name="address" required maxLength={200} defaultValue={report.address} />
+                <Input
+                  id="address"
+                  name="address"
+                  required
+                  maxLength={200}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" maxLength={80} defaultValue={report.state ?? ""} />
+                <Input
+                  id="state"
+                  name="state"
+                  maxLength={80}
+                  value={stateName}
+                  onChange={(e) => setStateName(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lga">LGA</Label>
-                <Input id="lga" name="lga" maxLength={80} defaultValue={report.lga ?? ""} />
+                <Input
+                  id="lga"
+                  name="lga"
+                  maxLength={80}
+                  value={lga}
+                  onChange={(e) => setLga(e.target.value)}
+                />
               </div>
             </div>
-            <LocationPicker value={loc} onChange={setLoc} />
+            <LocationPicker value={loc} onChange={setLoc} onAddressResolved={handleResolved} />
           </CardContent>
         </Card>
 
