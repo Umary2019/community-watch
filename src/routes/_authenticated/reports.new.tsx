@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LocationPicker, type LatLng } from "@/components/app/LocationPicker";
+import { LocationPicker, type LatLng, type ResolvedAddress } from "@/components/app/LocationPicker";
 import { EvidenceUpload, type UploadedFile } from "@/components/app/EvidenceUpload";
 import { SEVERITIES } from "@/lib/format";
 import { Loader2 } from "lucide-react";
@@ -46,6 +46,15 @@ function NewReport() {
   const [loc, setLoc] = useState<LatLng | null>(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  const [address, setAddress] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [lga, setLga] = useState("");
+
+  function handleResolved(a: ResolvedAddress) {
+    if (a.address && !address.trim()) setAddress(a.address);
+    if (a.state && !stateName.trim()) setStateName(a.state);
+    if (a.lga && !lga.trim()) setLga(a.lga);
+  }
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories-active"],
@@ -155,18 +164,38 @@ function NewReport() {
             <div className="grid gap-4 md:grid-cols-3">
               <div className="md:col-span-3 space-y-2">
                 <Label htmlFor="address">Address / landmark</Label>
-                <Input id="address" name="address" required maxLength={200} />
+                <Input
+                  id="address"
+                  name="address"
+                  required
+                  maxLength={200}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Auto-fills when you pick a location on the map"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="state">State</Label>
-                <Input id="state" name="state" maxLength={80} />
+                <Input
+                  id="state"
+                  name="state"
+                  maxLength={80}
+                  value={stateName}
+                  onChange={(e) => setStateName(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lga">LGA</Label>
-                <Input id="lga" name="lga" maxLength={80} />
+                <Input
+                  id="lga"
+                  name="lga"
+                  maxLength={80}
+                  value={lga}
+                  onChange={(e) => setLga(e.target.value)}
+                />
               </div>
             </div>
-            <LocationPicker value={loc} onChange={setLoc} />
+            <LocationPicker value={loc} onChange={setLoc} onAddressResolved={handleResolved} />
           </CardContent>
         </Card>
 
