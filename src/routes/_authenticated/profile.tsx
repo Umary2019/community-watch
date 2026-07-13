@@ -32,7 +32,11 @@ function Profile() {
       }).eq("id", user!.id);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Profile updated"); qc.invalidateQueries({ queryKey: ["profile-full"] }); },
+    onSuccess: () => {
+      toast.success("Profile updated");
+      qc.invalidateQueries({ queryKey: ["profile-full"] });
+      qc.invalidateQueries({ queryKey: ["current-profile-name"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 

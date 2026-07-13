@@ -43,16 +43,34 @@ function ReportDetail() {
 
   const { data: reporter } = useQuery({
     queryKey: ["profile", report?.reporter_id],
-    enabled: !!report?.reporter_id,
-    queryFn: async () =>
-      (await supabase.from("profiles").select("full_name, phone").eq("id", report!.reporter_id).maybeSingle()).data,
+    enabled:
+      !!report?.reporter_id &&
+      (role === "admin" || report?.is_anonymous === false),
+    queryFn: async () => {
+      if (!report) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, phone")
+        .eq("id", report.reporter_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
   });
 
   const { data: officer } = useQuery({
     queryKey: ["profile", report?.officer_id],
     enabled: !!report?.officer_id,
-    queryFn: async () =>
-      (await supabase.from("profiles").select("full_name, badge_number").eq("id", report!.officer_id!).maybeSingle()).data,
+    queryFn: async () => {
+      if (!report?.officer_id) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, badge_number")
+        .eq("id", report.officer_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
   });
 
   // Admin-only list of officers available for assignment
@@ -134,7 +152,11 @@ function ReportDetail() {
       });
       if (error) throw error;
       if (statusChange && statusChange !== "none") {
-        await supabase.from("crime_reports").update({ status: statusChange as "pending", officer_id: user.id }).eq("id", id);
+        const { error: statusError } = await supabase
+          .from("crime_reports")
+          .update({ status: statusChange as (typeof STATUSES)[number], officer_id: user.id })
+          .eq("id", id);
+        if (statusError) throw statusError;
       }
     },
     onSuccess: () => {
