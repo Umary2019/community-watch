@@ -17,7 +17,7 @@ function MapPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("crime_reports")
-        .select("id, report_number, title, status, severity, latitude, longitude, created_at")
+        .select("id, report_number, title, status, severity, latitude, longitude, address, state, lga, created_at")
         .order("created_at", { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -60,6 +60,11 @@ function MapPage() {
                       <div className="space-y-1 text-sm">
                         <div className="font-medium">{r.title}</div>
                         <div className="text-xs text-muted-foreground font-mono">{r.report_number}</div>
+                        <div className="text-xs text-foreground">
+                          📍 {r.address}
+                          {r.lga ? `, ${r.lga}` : ""}
+                          {r.state ? `, ${r.state}` : ""}
+                        </div>
                         <span className={`inline-block text-xs rounded-full border px-2 py-0.5 ${statusColor(r.status)}`}>{humanStatus(r.status)}</span>
                         <div><Link to="/reports/$id" params={{ id: r.id }} className="text-primary hover:underline">Open →</Link></div>
                       </div>
