@@ -72,16 +72,9 @@ function AuthPage() {
         data: { full_name: parsed.data.fullName, phone: parsed.data.phone },
       },
     });
-    if (error) { setBusy(false); return toast.error(error.message); }
-    // Email confirmation is disabled — sign the user in right away.
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: parsed.data.email,
-      password: parsed.data.password,
-    });
     setBusy(false);
-    if (signInError) return toast.error(signInError.message);
-    toast.success("Account created — welcome!");
-    navigate({ to: "/dashboard" });
+    if (error) return toast.error(error.message);
+    toast.success("Check your email to confirm your account before signing in.");
   }
 
   async function onForgotPassword(e: React.FormEvent<HTMLFormElement>) {
